@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 import anthropic
 import base64
 import os
@@ -14,7 +15,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=False,
-    max_age=3600,
 )
 
 SYSTEM_PROMPT = """Tu es un assistant expert en analyse de factures françaises du secteur BTP.
@@ -35,9 +35,11 @@ Règles :
 - confiance : "elevee" si labels explicites, "moyenne" si déduit, "incertaine" si ambigu/manquant.
 - notes : remarque courte ou chaîne vide."""
 
-@app.get("/")
+HTML_PAGE = open("index.html", encoding="utf-8").read()
+
+@app.get("/", response_class=HTMLResponse)
 def root():
-    return {"status": "ok", "service": "Renommage Factures BTP Meuse"}
+    return HTML_PAGE
 
 @app.post("/analyze")
 async def analyze(file: UploadFile = File(...)):
