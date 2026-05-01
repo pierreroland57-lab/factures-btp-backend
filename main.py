@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import anthropic
 import base64
 import os
+import re
+import json
 
 app = FastAPI()
 
@@ -11,6 +13,8 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=False,
+    max_age=3600,
 )
 
 SYSTEM_PROMPT = """Tu es un assistant expert en analyse de factures françaises du secteur BTP.
@@ -39,19 +43,19 @@ def root():
 async def analyze(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Fichier PDF uniquement")
-    
+
     content = await file.read()
     if len(content) > 20 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Fichier trop volumineux (max 20 Mo)")
-    
+
     b64 = base64.standard_b64encode(content).decode("utf-8")
-    
+
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="Clé API non configurée")
-    
+
     client = anthropic.Anthropic(api_key=api_key)
-    
+
     message = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=500,
@@ -74,11 +78,10 @@ async def analyze(file: UploadFile = File(...)):
             ]
         }]
     )
-    
-    import re, json
+
     raw = message.content[0].text
     match = re.search(r'\{[\s\S]*\}', raw)
     if not match:
         raise HTTPException(status_code=500, detail="Réponse inattendue de Claude")
-    
+
     return json.loads(match.group())
