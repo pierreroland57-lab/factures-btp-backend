@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Renommage Factures — BTP Meuse</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Segoe UI,Arial,sans-serif;background:#f1f5f9;font-size:14px;color:#1e293b}
+  header{background:#1e3a5f;color:#fff;padding:14px 24px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px #0003}
+  header h1{font-size:17px;font-weight:700}
+  header p{font-size:11px;color:#93c5fd;margin-top:2px}
+  .container{max-width:800px;margin:24px auto;padding:0 16px;display:flex;flex-direction:column;gap:16px}
+  .card{background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:16px;box-shadow:0 1px 4px #0001}
+  .btn{padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:.15s}
+  .btn-primary{background:#1d4ed8;color:#fff}.btn-primary:hover{background:#1e40af}.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+  .btn-green{background:#16a34a;color:#fff}.btn-green:hover{background:#15803d}
+  .btn-indigo{background:#4f46e5;color:#fff}.btn-indigo:hover{background:#4338ca}
+  .btn-red{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}.btn-red:hover{background:#fee2e2}
+  .dropzone{border:2px dashed #cbd5e1;border-radius:14px;padding:40px;text-align:center;cursor:pointer;transition:.2s;background:#fff}
+  .dropzone:hover,.dropzone.drag{border-color:#3b82f6;background:#eff6ff}
+  .dropzone .icon{font-size:36px;margin-bottom:8px}
+  .dropzone p{font-weight:600;color:#374151}
+  .dropzone small{color:#9ca3af;font-size:12px;margin-top:4px;display:block}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px;box-shadow:0 1px 4px #0001}
+  .actions .right{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:12px;color:#9ca3af}
+  .actions .right .ok{color:#16a34a;font-weight:600}
+  .actions .right .err{color:#dc2626;font-weight:600}
+  .file-list{display:flex;flex-direction:column;gap:8px}
+  .file-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;box-shadow:0 1px 3px #0001;transition:.2s}
+  .file-card.validated{border-color:#86efac;background:#f0fdf4}
+  .file-card.errored{border-color:#fca5a5;background:#fef2f2}
+  .file-top{display:flex;gap:12px;align-items:flex-start}
+  .file-info{flex:1;min-width:0}
+  .file-original{font-size:11px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .dot.waiting{background:#d1d5db}
+  .dot.processing{background:#3b82f6;animation:pulse 1s infinite}
+  .dot.done{background:#22c55e}
+  .dot.error{background:#ef4444}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .file-status{font-size:12px;color:#6b7280;font-style:italic}
+  .file-status.processing{color:#3b82f6}
+  .file-status.error{color:#dc2626;font-style:normal}
+  .badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;font-weight:600;margin-right:6px}
+  .badge.elevee{background:#dcfce7;color:#15803d}
+  .badge.moyenne{background:#fef9c3;color:#a16207}
+  .badge.incertaine{background:#fee2e2;color:#b91c1c}
+  .proposed{font-family:monospace;font-size:12px;background:#f8fafc;border-radius:8px;padding:6px 10px;margin-top:6px;word-break:break-all;color:#1e293b}
+  .proposed.validated{background:#dcfce7;color:#166534}
+  .proposed input{width:100%;border:1px solid #93c5fd;border-radius:6px;padding:5px 8px;font-family:monospace;font-size:12px;outline:none}
+  .file-actions{display:flex;flex-direction:column;gap:5px;min-width:96px;align-items:stretch}
+  .file-actions .remove{background:none;border:none;color:#d1d5db;cursor:pointer;font-size:13px;align-self:flex-end;margin-bottom:2px}
+  .file-actions .remove:hover{color:#ef4444}
+  .btn-sm{padding:5px 10px;border-radius:7px;border:none;cursor:pointer;font-size:11px;font-weight:600;text-align:center;transition:.15s}
+  .btn-sm.edit{background:#f3f4f6;color:#4b5563}.btn-sm.edit:hover{background:#e5e7eb}
+  .btn-sm.validate{background:#f3f4f6;color:#4b5563}.btn-sm.validate:hover{background:#e5e7eb}
+  .btn-sm.validate.on{background:#bbf7d0;color:#166534}.btn-sm.validate.on:hover{background:#86efac}
+  .btn-sm.dl{background:#e0e7ff;color:#3730a3}.btn-sm.dl:hover{background:#c7d2fe}
+  .btn-sm.retry{background:#fef3c7;color:#92400e}.btn-sm.retry:hover{background:#fde68a}
+  .progress{height:4px;background:#e2e8f0;border-radius:4px;margin-top:6px;overflow:hidden}
+  .progress-bar{height:100%;background:#3b82f6;border-radius:4px;animation:prog 1.5s ease-in-out infinite}
+  @keyframes prog{0%{width:20%}50%{width:75%}100%{width:20%}}
+  .empty{text-align:center;color:#cbd5e1;padding:40px 0;font-size:13px}
+  footer{text-align:center;font-size:11px;color:#cbd5e1;padding:16px 0}
+  .notes{font-size:11px;color:#9ca3af;font-style:italic;margin-top:3px}
+  .status-bar{background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px 14px}
+  .status-bar small{color:#15803d;font-size:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:22px">🏗️</span>
+  <div>
+    <h1>Renommage automatique de factures</h1>
+    <p>Fédération BTP Meuse — v5</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Statut serveur -->
+  <div class="status-bar">
+    <small>✅ Connecté au serveur · Traitement sécurisé côté serveur · Aucune donnée conservée</small>
+  </div>
+
+  <!-- Drop zone -->
+  <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()"
+    ondragover="event.preventDefault();this.classList.add('drag')"
+    ondragleave="this.classList.remove('drag')"
+    ondrop="onDrop(event)">
+    <div class="icon">📂</div>
+    <p>Glissez vos factures PDF ici</p>
+    <small>ou cliquez pour parcourir — Max 20 fichiers · PDF uniquement</small>
+    <input type="file" id="fileInput" accept=".pdf,application/pdf" multiple style="display:none" onchange="addFiles(this.files)"/>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions" id="actionsBar" style="display:none">
+    <button class="btn btn-primary" id="btnAnalyze" onclick="processAll()">🔍 Analyser</button>
+    <button class="btn btn-green" id="btnValidateAll" style="display:none" onclick="validateAll()">✅ Tout valider</button>
+    <button class="btn btn-indigo" id="btnZip" style="display:none" onclick="downloadZip()">📦 Télécharger ZIP</button>
+    <div class="right">
+      <span id="statOk" class="ok" style="display:none"></span>
+      <span id="statErr" class="err" style="display:none"></span>
+      <a href="#" onclick="resetAll();return false" style="color:#9ca3af;font-size:12px">Tout effacer</a>
+    </div>
+  </div>
+
+  <!-- Liste fichiers -->
+  <div class="file-list" id="fileList"></div>
+  <div class="empty" id="emptyMsg">Déposez vos factures PDF pour commencer</div>
+
+</div>
+<footer>Aucune donnée conservée · Traitement sécurisé · v5</footer>
+
+<script>
+const BACKEND_URL = "https://factures-btp-backend-3.onrender.com";
+
+let files = [];
+let processing = false;
+
+// --- Fichiers ---
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById("dropzone").classList.remove("drag");
+  addFiles(e.dataTransfer.files);
+}
+
+function addFiles(incoming) {
+  const pdfs = Array.from(incoming).filter(f => f.type==="application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
+  const slots = 20 - files.length;
+  pdfs.slice(0, slots).forEach(f => {
+    files.push({
+      id: Math.random().toString(36).slice(2),
+      file: f, originalName: f.name,
+      proposedName:"", editedName:"",
+      status:"waiting", confiance:null, notes:"",
+      validated:false, editing:false
+    });
+  });
+  render();
+}
+
+function resetAll() { files = []; processing = false; render(); }
+function removeFile(id) { files = files.filter(f=>f.id!==id); render(); }
+function retryFile(id) { upd(id,{status:"waiting",notes:"",confiance:null}); render(); }
+function upd(id, patch) { const f=files.find(f=>f.id===id); if(f) Object.assign(f,patch); }
+function toggleEdit(id) { const f=files.find(f=>f.id===id); if(f){ f.editing=!f.editing; render(); } }
+function toggleValidate(id) { const f=files.find(f=>f.id===id); if(f){ f.validated=!f.validated; render(); } }
+function validateAll() { files.filter(f=>f.status==="done").forEach(f=>f.validated=true); render(); }
+
+// --- Analyse ---
+async function processAll() {
+  if (processing) return;
+  processing = true; render();
+  const toProcess = files.filter(f => f.status !== "done");
+  for (const entry of toProcess) {
+    upd(entry.id, {status:"processing"}); render();
+    try {
+      const result = await analyzeFile(entry.file, entry.originalName);
+      const proposed = buildName(result.date, result.fournisseur, result.montant);
+      upd(entry.id, {
+        status:"done", proposedName:proposed, editedName:proposed,
+        confiance: result.confiance||"incertaine", notes: result.notes||""
+      });
+    } catch(err) {
+      upd(entry.id, {status:"error", notes:err.message});
+    }
+    render();
+  }
+  processing = false; render();
+}
+
+async function analyzeFile(file, filename) {
+  const formData = new FormData();
+  formData.append("file", file, filename);
+  const res = await fetch(`${BACKEND_URL}/analyze`, {
+    method: "POST",
+    body: formData
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({}));
+    throw new Error(e?.detail || `Erreur serveur ${res.status}`);
+  }
+  return await res.json();
+}
+
+// --- Nommage ---
+function cleanStr(s) {
+  return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g," ").trim().slice(0,80);
+}
+function buildName(date, fournisseur, montant) {
+  return `${cleanStr(date)||"DATE_INCONNUE"} - ${(cleanStr(fournisseur)||"FOURNISSEUR_INCONNU").toUpperCase()} - ${cleanStr(montant)||"MONTANT_INCONNU"} €.pdf`;
+}
+
+// --- Téléchargement ---
+function downloadSingle(id) {
+  const f = files.find(f=>f.id===id); if(!f) return;
+  const name = (f.editedName||f.proposedName).replace(/[\\/:*?"<>|]/g,"_");
+  const url = URL.createObjectURL(new Blob([f.file],{type:"application/pdf"}));
+  const a = document.createElement("a"); a.href=url; a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+async function downloadZip() {
+  const validated = files.filter(f=>f.validated);
+  if (!validated.length) { alert("Validez au moins un fichier d'abord."); return; }
+  const zip = new JSZip();
+  const used = {};
+  for (const e of validated) {
+    let name = (e.editedName||e.proposedName).replace(/[\\/:*?"<>|]/g,"_");
+    if (used[name]) { used[name]++; name=name.replace(/\.pdf$/i,`_${used[name]}.pdf`); } else used[name]=1;
+    zip.file(name, await e.file.arrayBuffer());
+  }
+  const blob = await zip.generateAsync({type:"blob"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download="factures_renommees.zip"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+// --- Rendu ---
+function render() {
+  const doneCount = files.filter(f=>f.status==="done").length;
+  const validCount = files.filter(f=>f.validated).length;
+  const errCount  = files.filter(f=>f.status==="error").length;
+  const waitCount = files.filter(f=>f.status!=="done").length;
+
+  document.getElementById("emptyMsg").style.display = files.length ? "none" : "block";
+  document.getElementById("actionsBar").style.display = files.length ? "flex" : "none";
+  document.getElementById("dropzone").style.display = files.length >= 20 ? "none" : "block";
+
+  const btnA = document.getElementById("btnAnalyze");
+  btnA.textContent = processing ? "⏳ Analyse en cours…" : `🔍 Analyser (${waitCount})`;
+  btnA.disabled = processing || waitCount===0;
+
+  const btnV = document.getElementById("btnValidateAll");
+  btnV.style.display = doneCount > 0 ? "inline-block" : "none";
+  btnV.textContent = `✅ Tout valider (${doneCount})`;
+
+  const btnZ = document.getElementById("btnZip");
+  btnZ.style.display = validCount > 0 ? "inline-block" : "none";
+  btnZ.textContent = `📦 ZIP (${validCount} fichier${validCount>1?"s":""})`;
+
+  const sOk=document.getElementById("statOk"), sErr=document.getElementById("statErr");
+  sOk.style.display = doneCount ? "inline":"none"; sOk.textContent=`✅ ${doneCount} OK`;
+  sErr.style.display = errCount ? "inline":"none";  sErr.textContent=`❌ ${errCount} erreur${errCount>1?"s":""}`;
+
+  const badgeMap = {elevee:"✅ Élevée", moyenne:"⚠️ Moyenne", incertaine:"❌ Incertaine"};
+  document.getElementById("fileList").innerHTML = files.map(f => {
+    const cardCls = f.validated?"validated":f.status==="error"?"errored":"";
+    const nameDisplay = f.editing
+      ? `<div class="proposed"><input type="text" value="${esc(f.editedName)}" oninput="upd('${f.id}',{editedName:this.value})"/></div>`
+      : `<div class="proposed${f.validated?" validated":""}">${esc(f.editedName||f.proposedName)}</div>`;
+
+    const actBtns = f.status==="done" ? `
+      <button class="btn-sm edit" onclick="toggleEdit('${f.id}')">${f.editing?"💾 Sauver":"✏️ Modifier"}</button>
+      <button class="btn-sm validate${f.validated?" on":""}" onclick="toggleValidate('${f.id}')">${f.validated?"✅ Validé":"Valider"}</button>
+      ${f.validated?`<button class="btn-sm dl" onclick="downloadSingle('${f.id}')">⬇️ Télécharger</button>`:""}
+    ` : f.status==="error" ? `<button class="btn-sm retry" onclick="retryFile('${f.id}')">↩ Réessayer</button>` : "";
+
+    const statusHtml = f.status==="waiting"
+      ? `<div class="file-status">En attente…</div>`
+      : f.status==="processing"
+      ? `<div class="file-status processing">Analyse en cours…</div><div class="progress"><div class="progress-bar"></div></div>`
+      : f.status==="error"
+      ? `<div class="file-status error">❌ ${esc(f.notes)}</div>`
+      : `<div style="margin-top:6px">
+          <span class="badge ${f.confiance||"incertaine"}">${badgeMap[f.confiance]||"❌ Incertaine"}</span>
+          ${f.notes?`<span class="notes">${esc(f.notes)}</span>`:""}
+        </div>${nameDisplay}`;
+
+    return `<div class="file-card ${cardCls}">
+      <div class="file-top">
+        <div class="file-info">
+          <div class="file-original"><span class="dot ${f.status}"></span>${esc(f.originalName)} <span style="color:#d1d5db">(${Math.round(f.file.size/1024)} Ko)</span></div>
+          ${statusHtml}
+        </div>
+        <div class="file-actions">
+          <button class="remove" onclick="removeFile('${f.id}')">✕</button>
+          ${actBtns}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+render();
+</script>
+</body>
+</html>
