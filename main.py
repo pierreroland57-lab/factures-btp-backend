@@ -61,7 +61,7 @@ async def analyze(file: UploadFile = File(...)):
     client = anthropic.Anthropic(api_key=api_key)
 
     message = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5",
         max_tokens=500,
         system=SYSTEM_PROMPT,
         messages=[{
