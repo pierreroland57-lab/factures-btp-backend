@@ -35,11 +35,13 @@ Règles :
 - confiance : "elevee" si labels explicites, "moyenne" si déduit, "incertaine" si ambigu/manquant.
 - notes : remarque courte ou chaîne vide."""
 
-HTML_PAGE = open("index.html", encoding="utf-8").read()
-
 @app.get("/", response_class=HTMLResponse)
 def root():
-    return HTML_PAGE
+    try:
+        html = open("index.html", encoding="utf-8").read()
+    except FileNotFoundError:
+        html = "<h1>index.html introuvable</h1>"
+    return html
 
 @app.post("/analyze")
 async def analyze(file: UploadFile = File(...)):
